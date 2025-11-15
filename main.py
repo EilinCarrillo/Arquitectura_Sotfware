@@ -1,122 +1,108 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from fastapi.responses import JSONResponse
 import random
-
-app = FastAPI(title="Mini Combate RPG")
-
-# Servir carpeta static en /static
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
-
-class GameState:
-    def __init__(self):
-        self.reset()
-
-    def reset(self):
-        self.player_hp = 100
-        self.enemy_hp = 100
-        self.turn = "player"
-        self.message = "Nueva partida iniciada."
-
-    def to_dict(self):
-        return {
-            "player_hp": self.player_hp,
-            "enemy_hp": self.enemy_hp,
-            "turn": self.turn,
-            "message": self.message,
-        }
-
-game = GameState()
-
-
-class ActionRequest(BaseModel):
-    action: str  # "attack", "defend", "heal"
-
-
-def enemy_action():
-    # 75% atacar (15 daño), 25% curarse (10)
-    if random.random() < 0.75:
-        return ("attack", 15)
-    else:
-        return ("heal", 10)
-
-
-@app.post("/start")
-def start():
-    global game
-    game.reset()
-    game.message = "Juego iniciado (backend)."
-    return {"message": "Juego iniciado", **game.to_dict()}
-
-
-@app.post("/action")
-def action(req: ActionRequest):
-    global game
-    a = req.action.lower()
-
-    # Si la partida está terminada, reiniciar automáticamente y avisar
-    if game.player_hp <= 0 or game.enemy_hp <= 0:
-        prev = "Se reinicia la partida porque la anterior terminó."
-        game.reset()
-        game.message = prev
-        return {"message": prev, **game.to_dict()}
-
-    game.message = ""
-    # Acción del jugador
-    if a == "attack":
-        dmg = 20
-        game.enemy_hp -= dmg
-        game.message = f"Atacaste y causaste {dmg} de daño."
-    elif a == "defend":
-        heal = 5
-        game.player_hp = min(100, game.player_hp + heal)
-        game.message = f"Te defendiste y recuperaste {heal} HP."
-    elif a == "heal":
-        heal = 15
-        game.player_hp = min(100, game.player_hp + heal)
-        game.message = f"Te curaste {heal} HP."
-    else:
-        return {"error": "Acción inválida. Usa 'attack', 'defend' o 'heal'."}
-
-    # Si el enemigo murió por el ataque del jugador
-    if game.enemy_hp <= 0:
-        msg = f"{game.message} | ¡Ganaste! Reiniciando partida..."
-        game.reset()
-        game.message = msg
-        return {"message": msg, **game.to_dict()}
-
-    # Turno del enemigo
-    e_act, value = enemy_action()
-    if e_act == "attack":
-        game.player_hp -= value
-        game.message += f" | Turno del enemigo: te atacó y te hizo {value} de daño."
-    else:
-        game.enemy_hp = min(100, game.enemy_hp + value)
-        game.message += f" | Turno del enemigo: se curó {value} HP."
-
-    # Revisar si el jugador murió
-    if game.player_hp <= 0:
-        msg = f"{game.message} | Perdiste. Reiniciando partida..."
-        game.reset()
-        game.message = msg
-        return {"message": msg, **game.to_dict()}
-
-    # Normal: devolver estado actual
-    return {"message": game.message, **game.to_dict()}
-
-
-@app.get("/status")
-def status():
-    return game.to_dict()
-
 import os
 import uvicorn
 
+app = FastAPI()
+
+# Estado del juego
+player_hp = 100
+enemy_hp = 100
+game_over = False
+
+
+@app.get("/start")
+def start_game():
+    global player_hp, enemy_hp, game_over
+    player_hp = 100
+    enemy_hp = 100
+    game_over = False
+    return {"player_hp": player_hp, "enemy_hp": enemy_hp, "message": "Juego iniciado!"}
+
+
+@app.get("/attack")
+def attack():
+    global player_hp, enemy_hp, game_over
+    if game_over:
+        return {"message": "El juego ha terminado."}
+
+    damage = random.randint(10, 20)
+    enemy_hp -= damage
+
+    if enemy_hp <= 0:
+        game_over = True
+        enemy_hp = 0
+        return {"player_hp": player_hp, "enemy_hp": enemy_hp, "message": f"Atacaste e hiciste {damage} de daño. ¡Ganaste la batalla!"}
+
+    # enemigo contraataca
+    enemy_damage = random.randint(5, 15)
+    player_hp -= enemy_damage
+
+    if player_hp <= 0:
+        game_over = True
+        player_hp = 0
+        return {"player_hp": player_hp, "enemy_hp": enemy_hp, "message": f"Hiciste {damage} de daño, pero el enemigo te derrotó..."}
+
+    return {
+        "player_hp": player_hp,
+        "enemy_hp": enemy_hp,
+        "message": f"Atacaste e hiciste {damage} de daño. El enemigo contraataca por {enemy_damage}."
+    }
+
+
+@app.get("/defend")
+def defend():
+    global player_hp, enemy_hp, game_over
+    if game_over:
+        return {"message": "El juego ha terminado."}
+
+    reduced = random.randint(5, 10)
+    enemy_damage = max(0, random.randint(10, 20) - reduced)
+
+    player_hp -= enemy_damage
+
+    if player_hp <= 0:
+        game_over = True
+        player_hp = 0
+        return {"player_hp": player_hp, "enemy_hp": enemy_hp, "message": "Te defendiste, pero aun así perdiste..."}
+
+    return {
+        "player_hp": player_hp,
+        "enemy_hp": enemy_hp,
+        "message": f"Te defendiste. El daño reducido fue {reduced}. Recibiste {enemy_damage}."
+    }
+
+
+@app.get("/heal")
+def heal():
+    global player_hp, enemy_hp, game_over
+    if game_over:
+        return {"message": "El juego ha terminado."}
+
+    heal_amount = random.randint(10, 20)
+    player_hp = min(100, player_hp + heal_amount)
+
+    enemy_damage = random.randint(5, 15)
+    player_hp -= enemy_damage
+
+    if player_hp <= 0:
+        game_over = True
+        player_hp = 0
+        return {"player_hp": player_hp, "enemy_hp": enemy_hp, "message": "Te curaste pero el enemigo te derrotó."}
+
+    return {
+        "player_hp": player_hp,
+        "enemy_hp": enemy_hp,
+        "message": f"Te curaste {heal_amount}. El enemigo atacó causando {enemy_damage}."
+    }
+
+
+# Servir archivos estáticos
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Para Railway
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 8000))  # Railway define PORT automáticamente
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=port
-    )
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port)
