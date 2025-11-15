@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Mini Combate RPG</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin-top: 40px; }
+        button { padding: 12px 20px; margin: 10px; font-size: 16px; cursor: pointer; }
+        #log { border: 1px solid #333; margin: 20px auto; width: 480px; height: 180px; overflow-y: auto; padding: 10px; text-align: left; background:#f7f7f7; }
+        #status { font-weight: bold; margin-top: 10px; }
+        .hp { display:inline-block; min-width:120px; }
+    </style>
+</head>
+<body>
+    <h1>Mini Combate RPG</h1>
+
+    <div>
+        <button onclick="startGame()">Iniciar Juego</button>
+    </div>
+
+    <div style="margin-top:12px;">
+        <button onclick="doAction('attack')"> Atacar</button>
+        <button onclick="doAction('defend')"> Defender</button>
+        <button onclick="doAction('heal')"> Curar</button>
+    </div>
+
+    <p id="status">Jugador HP: - | Enemigo HP: -</p>
+
+    <div id="log"></div>
+
+    <script>
+        const API = "/"; // same origin (served by FastAPI)
+        const logEl = document.getElementById('log');
+        const statusEl = document.getElementById('status');
+
+        function appendLog(text) {
+            const time = new Date().toLocaleTimeString();
+            logEl.innerHTML = `<div>[${time}] ${text}</div>` + logEl.innerHTML;
+        }
+
+        async function startGame() {
+            try {
+                const res = await fetch(API + "start", { method: "POST" });
+                const data = await res.json();
+                appendLog("Juego iniciado.");
+                updateStatusFrom(data);
+            } catch (err) {
+                appendLog("Error iniciando juego: " + err);
+            }
+        }
+
+        async function doAction(action) {
+            try {
+                const res = await fetch(API + "action", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ action })
+                });
+                const data = await res.json();
+                if (data.error) {
+                    appendLog("Error: " + data.error);
+                } else {
+                    appendLog(data.message || data.result || "Acción ejecutada.");
+                    updateStatusFrom(data);
+                }
+            } catch (err) {
+                appendLog("Error en la acción: " + err);
+            }
+        }
+
+        async function updateStatus() {
+            try {
+                const res = await fetch(API + "status");
+                const data = await res.json();
+                updateStatusFrom(data);
+            } catch (err) {
+                appendLog("Error obteniendo estado: " + err);
+            }
+        }
+
+        function updateStatusFrom(data) {
+            if (!data) return;
+            statusEl.textContent = `Jugador HP: ${data.player_hp} | Enemigo HP: ${data.enemy_hp}`;
+        }
+
+        // auto update status every 3s (optional)
+        setInterval(updateStatus, 3000);
+
+        // iniciar al cargar
+        updateStatus();
+    </script>
+</body>
+</html>
