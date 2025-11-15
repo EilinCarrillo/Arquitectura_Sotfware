@@ -5,122 +5,35 @@
     <title>Mini RPG</title>
     <style>
         body {
-            background: #1e1e1e;
-            color: #f5f5f5;
-            font-family: Arial, sans-serif;
+            background-color: #222;
+            color: white;
+            font-family: Arial;
             text-align: center;
             margin-top: 50px;
         }
-
-        .container {
-            max-width: 500px;
-            margin: auto;
-            padding: 20px;
-        }
-
         button {
             padding: 10px 20px;
             margin: 10px;
-            background: #333;
-            color: white;
-            border: none;
-            cursor: pointer;
-            border-radius: 8px;
-            transition: 0.2s;
-        }
-
-        button:hover {
-            background: #555;
-        }
-
-        button:disabled {
-            background: #444;
-            color: #777;
-            cursor: not-allowed;
-        }
-
-        .message {
-            margin-top: 20px;
-            font-size: 18px;
-            min-height: 40px;
-        }
-
-        .hp-box {
-            margin-bottom: 15px;
         }
     </style>
 </head>
 <body>
 
-<div class="container">
-
     <h1>Mini RPG</h1>
 
-    <div class="hp-box">
-        <p><strong>Jugador HP:</strong> <span id="player_hp">100</span></p>
-        <p><strong>Enemigo HP:</strong> <span id="enemy_hp">100</span></p>
-    </div>
+    <p>Jugador HP: <span id="playerHP">100</span></p>
+    <p>Enemigo HP: <span id="enemyHP">100</span></p>
 
-    <div id="message" class="message">Presiona "Iniciar Juego" para comenzar.</div>
+    <p id="msg">Presiona "Iniciar Juego"</p>
 
-    <div class="buttons">
-        <button id="btn-start" onclick="startGame()">Iniciar Juego</button><br>
+    <button onclick="startGame()">Iniciar Juego</button>
+    <br>
 
-        <button id="btn-attack" onclick="sendAction('attack')" disabled>Atacar</button>
-        <button id="btn-defend" onclick="sendAction('defend')" disabled>Defender</button>
-        <button id="btn-heal" onclick="sendAction('heal')" disabled>Curar</button>
-    </div>
+    <button onclick="attack()" disabled id="btnAttack">Atacar</button>
+    <button onclick="defend()" disabled id="btnDefend">Defender</button>
+    <button onclick="heal()" disabled id="btnHeal">Curar</button>
 
-</div>
-
-<script>
-const API = "http://localhost:8000";
-
-// -----------  Habilitar / Deshabilitar Botones  -----------------
-
-function disableActions(state) {
-    document.getElementById("btn-attack").disabled = state;
-    document.getElementById("btn-defend").disabled = state;
-    document.getElementById("btn-heal").disabled = state;
-}
-
-// -----------  Iniciar Juego  -----------------
-
-async function startGame() {
-    const res = await fetch(`${API}/start`, { method: "POST" });
-    const data = await res.json();
-
-    updateUI(data);
-
-    disableActions(false); // habilitar botones de acción
-}
-
-// -----------  Acciones del Jugador  -----------------
-
-async function sendAction(action) {
-    const res = await fetch(`${API}/action`, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({ action })
-    });
-    
-    const data = await res.json();
-    updateUI(data);
-
-    // Si el mensaje contiene "Ganaste" o "Perdiste", deshabilitar juego
-    if (data.message.includes("Ganaste") || data.message.includes("Perdiste")) {
-        disableActions(true);
-    }
-}
-
-// -----------  Actualizar Interfaz  -----------------
-
-function updateUI(data) {
-    document.getElementById("player_hp").innerText = data.player_hp;
-    document.getElementById("enemy_hp").innerText = data.enemy_hp;
-    document.getElementById("message").innerText = data.message;
-}
-</script>
-
+    <!-- IMPORTANTE: EL ARCHIVO JS DEBE ESTAR EN LA MISMA CARPETA -->
+    <script src="script.js"></script>
 </body>
 </html>
