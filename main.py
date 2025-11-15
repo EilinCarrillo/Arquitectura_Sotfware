@@ -109,3 +109,14 @@ def action(req: ActionRequest):
 @app.get("/status")
 def status():
     return game.to_dict()
+
+import os
+import uvicorn
+
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", 8000))  # Railway define PORT automáticamente
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=port
+    )
